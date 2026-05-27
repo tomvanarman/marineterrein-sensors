@@ -1,13 +1,13 @@
 
 <div style="border-radius: var(--border-radius-lg); overflow: hidden; border: 0.5px solid var(--color-border-tertiary);">
-  <div id="map" style="height: 520px; width: 100%;"></div>
+  <div id="map" style="height: 560px; width: 100%;"></div>
 </div>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
-const map = L.map('map', { zoomControl: true }).setView([52.373167775186744, 4.915715143371085], 17);
+const map = L.map('map', { zoomControl: true }).setView([52.3730, 4.9162], 16);
 
 L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
   attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/">CARTO</a>',
@@ -15,36 +15,31 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
   maxZoom: 19
 }).addTo(map);
 
-function makeMarker(color, stroke) {
-  return L.divIcon({
-    className: '',
-    html: `<div style="width:18px;height:18px;border-radius:50%;background:${color};border:3px solid ${stroke};box-sizing:border-box;"></div>`,
-    iconSize: [18, 18],
-    iconAnchor: [9, 9]
-  });
-}
-
-const green  = makeMarker('#2f9e44', '#fff');
-const amber  = makeMarker('#f59e0b', '#fff');
+const markerIcon = L.divIcon({
+  className: '',
+  html: `<div style="width:16px;height:16px;border-radius:50%;background:#2f9e44;border:3px solid #fff;box-sizing:border-box;box-shadow:0 1px 3px rgba(0,0,0,0.25);"></div>`,
+  iconSize: [16, 16],
+  iconAnchor: [8, 8]
+});
 
 const sensors = [
-  { lat: 52.3744, lng: 4.9177, type: 'green', label: 'Portiersloge' },
-  { lat: 52.3736, lng: 4.9163, type: 'green', label: 'Sensor B' },
-  { lat: 52.3730, lng: 4.9170, type: 'green', label: 'Sensor C' },
-  { lat: 52.3725, lng: 4.9178, type: 'green', label: 'TAPP' },
-  { lat: 52.3724, lng: 4.9162, type: 'green', label: 'Sensor E' },
-  { lat: 52.3718, lng: 4.9158, type: 'green', label: 'Sensor F' },
-  { lat: 52.3737, lng: 4.9148, type: 'green', label: 'Swim area sensor' },
-  { lat: 52.3750, lng: 4.9161, type: 'green', label: 'CODAM sensor' },
-  { lat: 52.3742, lng: 4.9152, type: 'amber', label: 'Sensor (warning)' },
-  { lat: 52.3733, lng: 4.9145, type: 'amber', label: 'AHK MakerSpace sensor' },
-  { lat: 52.3728, lng: 4.9154, type: 'amber', label: 'Sensor (warning)' },
-  { lat: 52.3726, lng: 4.9140, type: 'amber', label: 'Sensor (warning)' },
+  { name: 'ABRI Screen (Visitor Dashboard)',      lat: 52.3726881, lng: 4.9175541 },
+  { name: 'Urban Sound Classification',           lat: 52.3728175, lng: 4.9166609 },
+  { name: 'Foot Traffic Flow - Main Entrance',    lat: 52.3725506, lng: 4.9178169 },
+  { name: 'Vehicle Type Detection',               lat: 52.3731205, lng: 4.9167735 },
+  { name: 'Busyness Counter - Terrace',           lat: 52.3731254, lng: 4.9166904 },
+  { name: 'Water Temperature',                    lat: 52.3732122, lng: 4.9144507 },
+  { name: 'Busyness Counter - AMS-Inst',          lat: 52.3737029, lng: 4.9150122 },
+  { name: 'Busyness Counter - Boardwalk Counter', lat: 52.3725291, lng: 4.9153350 },
+  { name: 'Busyness Counter - Picnic Counter',    lat: 52.3728910, lng: 4.9166064 },
+  { name: 'Foot Traffic Flow - Bridge Entrance',  lat: 52.3756498, lng: 4.9143518 },
+  { name: 'Foot Traffic Flow - Oude Poort',       lat: 52.3718495, lng: 4.9163502 },
+  { name: 'Air Quality Monitor - Park',           lat: 52.3724122, lng: 4.9174840 },
 ];
 
 sensors.forEach(s => {
-  L.marker([s.lat, s.lng], { icon: s.type === 'green' ? green : amber })
-    .bindTooltip(s.label, { permanent: false, direction: 'top' })
+  L.marker([s.lat, s.lng], { icon: markerIcon })
+    .bindTooltip(s.name, { permanent: false, direction: 'top', offset: [0, -6] })
     .addTo(map);
 });
 </script>
