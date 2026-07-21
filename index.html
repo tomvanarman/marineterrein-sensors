@@ -152,27 +152,46 @@
             });
           });
 
-          // Sort incoming records into station buckets
+          // Sort incoming records into station buckets with strict filtering to prevent cross-contamination
           rawRecords.forEach(record => {
             const stationKey = getStationKey(record);
-            if (stationMap.has(stationKey) && record.value != null) {
-              stationMap.get(stationKey).rawValues.push({
-                num: Number(record.value) || 0,
-                unit: record.unit || ''
-              });
+            if (!stationMap.has(stationKey) || record.value == null) return;
+
+            const metricText = `${record.metric || ''} ${record.label || ''}`.toLowerCase();
+
+            // Strict filter: Exclude air metrics/temps from the water station bucket
+            if (stationKey === 'water' && (metricText.includes('air') || !metricText.includes('water'))) {
+              return;
             }
+
+            // Strict filter: Target primary PM2.5/air quality metric for air station
+            if (stationKey === 'air' && !metricText.includes('pm2.5') && !metricText.includes('pm25') && !metricText.includes('quality')) {
+              return;
+            }
+
+            stationMap.get(stationKey).rawValues.push({
+              num: Number(record.value) || 0,
+              unit: record.unit || ''
+            });
           });
 
-          // Render each station with a single aggregated "big idea" total number
+          // Render each station with precise calculation logic
           stationMap.forEach(station => {
             let displayVal = 'N/A';
             
             if (station.rawValues.length > 0) {
-              // Sum up all sub-metrics to create one big aggregate total number
-              const totalSum = station.rawValues.reduce((acc, curr) => acc + curr.num, 0);
-              const unit = station.rawValues[0].unit; // Grab the shared unit (e.g. count/hour)
+              const unit = station.rawValues[0].unit;
+              let finalNum;
+
+              // Sum totals specifically for traffic/people counts; grab the main clean metric for single sensors
+              if (station.key === 'telraam' || station.key === 'mmwave') {
+                finalNum = station.rawValues.reduce((acc, curr) => acc + curr.num, 0);
+              } else {
+                // For water temp, air quality, sound, and cameras, take the primary/first clean value directly
+                finalNum = station.rawValues[0].num;
+              }
               
-              const formattedNum = Number.isInteger(totalSum) ? totalSum : totalSum.toFixed(1);
+              const formattedNum = Number.isInteger(finalNum) ? finalNum : finalNum.toFixed(1);
               displayVal = `${formattedNum} ${unit}`.trim();
             }
 
@@ -180,7 +199,7 @@
               <div style="font-family: system-ui, sans-serif; min-width: 170px; padding: 2px;">
                 <h4 style="margin: 0 0 6px 0; font-size: 14px; color: #1a1a1a; font-weight: 600;">${station.label}</h4>
                 <div style="font-size: 13px; color: #111; font-weight: 600; margin-bottom: 4px;">
-                  Total: <span style="color: #0284c7;">${displayVal}</span>
+                  Value: <span style="color: #0284c7;">${displayVal}</span>
                 </div>
                 <div style="font-size: 11px; color: #666; margin-top: 4px;">
                   Status: <span style="font-weight: 500; color: ${station.color};">Active</span>
