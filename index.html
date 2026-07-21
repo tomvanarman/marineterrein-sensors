@@ -1,8 +1,3 @@
-That explains it completely! Since all the `sensorId` values are `null`, the overview API relies entirely on specific **`metric`** and **`label`** keys (like `total_flow`, `water_temperature_c`, `sound_level_db`, and `pm25`).
-
-Here is the finalized **`index.html`** updated to match directly against those exact metric strings:
-
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -64,77 +59,69 @@ Here is the finalized **`index.html`** updated to match directly against those e
         });
       }
 
-      // 📍 Distinct, well-spaced hardcoded coordinates across Marineterrein
+      // 📍 Updated stations with exact coordinates and names provided
       const HARDCODED_STATIONS = {
-        'telraam': {
-          label: 'Telraam Vehicle Classifications',
-          coords: [52.3718, 4.9135],
-          color: '#0284c7' // Blue
-        },
-        'shuttercam': {
-          label: 'MQTT Camera: Shuttercam',
-          coords: [52.3722, 4.9142],
+        'abri': {
+          label: 'ABRI Screen (Visitor Dashboard)',
+          coords: [52.3726881, 4.9175541],
           color: '#ec4899' // Pink
-        },
-        'mmwave': {
-          label: 'Millimeter Wave Cameras',
-          coords: [52.3726, 4.9148],
-          color: '#f97316' // Orange
-        },
-        'air': {
-          label: 'Air Quality Sensor',
-          coords: [52.3729, 4.9155],
-          color: '#8b5cf6' // Purple
         },
         'sound': {
-          label: 'Sound Level Sensor',
-          coords: [52.3732, 4.9150],
+          label: 'Urban Sound Classification',
+          coords: [52.3728175, 4.9166609],
           color: '#eab308' // Yellow
         },
-        'picnic': {
-          label: 'MQTT Camera: Picnic',
-          coords: [52.3733, 4.9163],
-          color: '#ec4899' // Pink
+        'foot_main': {
+          label: 'Foot Traffic Flow - Main Entrance',
+          coords: [52.3725506, 4.9178169],
+          color: '#0284c7' // Blue
+        },
+        'vehicle': {
+          label: 'Vehicle Type Detection',
+          coords: [52.3731205, 4.9167735],
+          color: '#0284c7' // Blue
         },
         'terrace': {
-          label: 'MQTT Camera: Terrace',
-          coords: [52.3736, 4.9170],
-          color: '#ec4899' // Pink
-        },
-        'boardwalk': {
-          label: 'MQTT Camera: Boardwalk',
-          coords: [52.3739, 4.9175],
-          color: '#ec4899' // Pink
+          label: 'Busyness Counter - Terrace',
+          coords: [52.3731254, 4.9166904],
+          color: '#f97316' // Orange
         },
         'water': {
-          label: 'Water Temperature Sensor',
-          coords: [52.3742, 4.9181],
+          label: 'Water Temperature',
+          coords: [52.3732122, 4.9144507],
           color: '#06b6d4' // Cyan
+        },
+        'ams_inst': {
+          label: 'Busyness Counter - AMS-Inst',
+          coords: [52.3737029, 4.9150122],
+          color: '#f97316' // Orange
+        },
+        'boardwalk': {
+          label: 'Busyness Counter - Boardwalk Counter',
+          coords: [52.3725291, 4.9153350],
+          color: '#f97316' // Orange
+        },
+        'picnic': {
+          label: 'Busyness Counter - Picnic Counter',
+          coords: [52.3728910, 4.9166064],
+          color: '#f97316' // Orange
+        },
+        'foot_bridge': {
+          label: 'Foot Traffic Flow - Bridge Entrance',
+          coords: [52.3756498, 4.9143518],
+          color: '#0284c7' // Blue
+        },
+        'foot_oude': {
+          label: 'Foot Traffic Flow - Oude Poort',
+          coords: [52.3718495, 4.9163502],
+          color: '#0284c7' // Blue
+        },
+        'air': {
+          label: 'Air Quality Monitor - Park',
+          coords: [52.3724122, 4.9174840],
+          color: '#8b5cf6' // Purple
         }
       };
-
-      // Match records precisely using the terminal-discovered metric and label values
-      function getStationKey(record) {
-        const label = (record.label || '').toLowerCase();
-        const metric = (record.metric || '').toLowerCase();
-
-        // Cameras & mmWave checks
-        if (label.includes('shuttercam')) return 'shuttercam';
-        if (label.includes('terrace')) return 'terrace';
-        if (label.includes('boardwalk')) return 'boardwalk';
-        if (label.includes('picnic')) return 'picnic';
-        if (metric.includes('mmwave') || label.includes('mmwave') || label.includes('millimeter')) return 'mmwave';
-
-        // Telraam Traffic (Grab the total flow metric directly for the big idea number)
-        if (metric === 'total_flow' || metric.endsWith('_count')) return 'telraam';
-
-        // Environmental Sensors based on exact metrics from API
-        if (metric === 'water_temperature_c' || label.includes('water temperature')) return 'water';
-        if (metric === 'sound_level_db' || label.includes('sound level')) return 'sound';
-        if (metric === 'pm25' || metric === 'pm10' || label.includes('pm2.5')) return 'air';
-
-        return null;
-      }
 
       async function renderLiveMapMarkers() {
         try {
@@ -158,44 +145,50 @@ Here is the finalized **`index.html`** updated to match directly against those e
             });
           });
 
-          // Route and assign values
+          // Extract standard metric values from the API payload
+          let trafficFlow = 'N/A';
+          let waterTemp = 'N/A';
+          let soundLevel = 'N/A';
+          let airQuality = 'N/A';
+
           rawRecords.forEach(record => {
-            const stationKey = getStationKey(record);
-            if (!stationKey || !stationMap.has(stationKey) || record.value == null) return;
-
-            const station = stationMap.get(stationKey);
-
-            // For Telraam, specifically look for total_flow to get the single big traffic number (e.g. 157)
-            if (stationKey === 'telraam') {
-              if (record.metric === 'total_flow') {
-                station.displayValue = `${record.value} total count`;
-              }
-            } else if (stationKey === 'water') {
-              if (record.metric === 'water_temperature_c') {
-                station.displayValue = `${record.value} °C`;
-              }
-            } else if (stationKey === 'sound') {
-              if (record.metric === 'sound_level_db') {
-                station.displayValue = `${Number(record.value).toFixed(1)} dB`;
-              }
-            } else if (stationKey === 'air') {
-              if (record.metric === 'pm25') {
-                station.displayValue = `${record.value} PM2.5`;
-              }
-            } else {
-              station.displayValue = `${record.value}`;
+            if (record.metric === 'total_flow') {
+              trafficFlow = `${record.value} total count`;
+            }
+            if (record.metric === 'water_temperature_c') {
+              waterTemp = `${record.value} °C`;
+            }
+            if (record.metric === 'sound_level_db') {
+              waterTemp = `${Number(record.value).toFixed(1)} dB`;
+              soundLevel = `${Number(record.value).toFixed(1)} dB`;
+            }
+            if (record.metric === 'pm25') {
+              airQuality = `${record.value} PM2.5`;
             }
           });
 
-          // Render pins
-          stationMap.forEach(station => {
-            const valStr = station.displayValue || 'Active Feed';
+          // Assign values based on station category
+          stationMap.forEach((station, key) => {
+            if (key === 'water') {
+              station.displayValue = waterTemp;
+            } else if (key === 'air') {
+              station.displayValue = airQuality;
+            } else if (key === 'sound') {
+              station.displayValue = soundLevel;
+            } else if (key.includes('foot') || key === 'vehicle') {
+              station.displayValue = trafficFlow;
+            } else {
+              station.displayValue = 'Active Feed';
+            }
+          });
 
+          // Render all 12 markers onto the Leaflet map
+          stationMap.forEach(station => {
             const popupContent = `
               <div style="font-family: system-ui, sans-serif; min-width: 170px; padding: 2px;">
                 <h4 style="margin: 0 0 6px 0; font-size: 14px; color: #1a1a1a; font-weight: 600;">${station.label}</h4>
                 <div style="font-size: 13px; color: #111; font-weight: 600; margin-bottom: 4px;">
-                  Value: <span style="color: #0284c7;">${valStr}</span>
+                  Value: <span style="color: #0284c7;">${station.displayValue}</span>
                 </div>
                 <div style="font-size: 11px; color: #666; margin-top: 4px;">
                   Status: <span style="font-weight: 500; color: ${station.color};">Active</span>
@@ -214,11 +207,10 @@ Here is the finalized **`index.html`** updated to match directly against those e
         }
       }
 
+      // Initial load + polling refresh every 60 seconds
       renderLiveMapMarkers();
       setInterval(renderLiveMapMarkers, 60000);
     });
   </script>
 </body>
 </html>
-
-```
