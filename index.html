@@ -17,29 +17,42 @@ const markerIcon = L.divIcon({
 // LayerGroup prevents old pins from sticking around on updates
 const markerGroup = L.layerGroup().addTo(map);
 
+// Map missing coordinates by zoneId so pins don't all stack on one spot
+const ZONE_COORDINATES = {
+  'portiersloge': [52.3720, 4.9140], // Traffic / Telraam
+  'swim-area':    [52.3735, 4.9172], // Water temperature
+  'general':      [52.3728, 4.9154]  // General / Weather / Air
+};
+
 async function renderLiveMapMarkers() {
   try {
-    // Point directly to your public dashboard backend domain
     const PUBLIC_API = 'https://data.marineterrein.nl';
-
     const response = await fetch(`${PUBLIC_API}/api/ops/live/overview`);
-    if (!response.ok) {
-      throw new Error(`API response error: ${response.status}`);
-    }
+    if (!response.ok) throw new Error(`API error: ${response.status}`);
 
     const data = await response.json();
     const records = data.records || [];
 
-    // Clear old markers before drawing fresh ones
     markerGroup.clearLayers();
 
     records.forEach(record => {
-      const lat = record.lat ?? 52.3725;
-      const lng = record.lon ?? record.lng ?? 4.9153;
+      // 1. Use record coordinates if available, otherwise fall back to zone coords
+      const zoneCoords = ZONE_COORDINATES[record.zoneId] || [52.3728, 4.9154];
+      const lat = record.lat ?? zoneCoords[0];
+      const lng = record.lon ?? record.lng ?? zoneCoords[1];
 
+      // 2. Format live value cleanly
       const label = record.label || record.metric || 'Sensor';
-      const liveValue = record.value != null ? `${record.value} ${record.unit || ''}` : 'N/A';
-      const category = record.source || 'Active';
+      let liveValue = 'N/A';
+      if (record.value != null) {
+        // Round floats (like dB sound level) to 1 decimal place
+        const formattedVal = typeof record.value === 'number' && !Number.isInteger(record.value) 
+          ? record.value.toFixed(1) 
+          : record.value;
+        liveValue = `${formattedVal} ${record.unit || ''}`.trim();
+      }
+
+      const category = record.source || record.category || 'Active';
 
       const popupContent = `
         <div style="font-family: system-ui, sans-serif; min-width: 160px; padding: 2px;">
@@ -48,7 +61,7 @@ async function renderLiveMapMarkers() {
             Value: <span style="color: #0284c7;">${liveValue}</span>
           </div>
           <div style="font-size: 11px; color: #666;">
-            Category: <span style="font-weight: 500; color: #2f9e44;">${category}</span>
+            Source: <span style="font-weight: 500; color: #2f9e44; text-transform: capitalize;">${category}</span>
           </div>
         </div>
       `;
