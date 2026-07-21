@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Marineterrein Live Sensors</title>
+  <title>Marineterrein Live Sensors Map</title>
 
   <!-- Prevent favicon 404 console log -->
   <link rel="icon" href="data:,">
@@ -49,7 +49,7 @@
 
       const markerGroup = L.layerGroup().addTo(map);
 
-      // Custom marker icon style
+      // Custom marker icon style generator
       function createMarkerIcon(color = '#2f9e44') {
         return L.divIcon({
           className: '',
@@ -59,29 +59,43 @@
         });
       }
 
-      // 📍 Exact hardcoded coordinates for sensors/cameras across Marineterrein
+      // 📍 Physical locations for core sensor stations
       const SENSOR_LOCATIONS = {
-        // Specific Sensor IDs (Matches sensorId in JSON)
-        'telraam-portiersloge': [52.3719, 4.9138], // Entrance Traffic Camera
-        'water-temp-swim':      [52.3736, 4.9175], // Swimming Harbour Sensor
-        'weather-station-1':    [52.3725, 4.9150], // Roof Weather Station
-        'air-quality-pm25':     [52.3726, 4.9152], // Air Quality Sensor
-
-        // Category / Zone Fallbacks if sensorId isn't listed
-        'portiersloge':         [52.3720, 4.9140], // Main Gate
-        'swim-area':            [52.3735, 4.9172], // Inner Harbour
-        'voorwerf':             [52.3728, 4.9160], // Open Yard
-        'general':              [52.3728, 4.9154]  // Center Grounds
+        'portiersloge': [52.3720, 4.9140], // Entrance Traffic Camera (Telraam)
+        'swim-area':    [52.3735, 4.9172], // Inner Harbour Water Sensor
+        'voorwerf':     [52.3728, 4.9160], // Open Yard Area
+        'general':      [52.3728, 4.9154]  // Roof Weather Station & Sound Sensor
       };
 
-      // Sensor Category Color Theme (Fixed missing single quote on #eab308)
+      // Sensor Category Color Theme (Properly quoted hex codes)
       const SOURCE_COLORS = {
         'telraam': '#0284c7', // Traffic (Blue)
         'sound':   '#eab308', // Sound (Yellow)
         'water':   '#06b6d4', // Water (Cyan)
         'weather': '#10b981', // Weather (Green)
+        'air':     '#8b5cf6', // Air Quality (Purple)
         'default': '#2f9e44'
       };
+
+      // Helper to determine exact lat/lng for a record
+      function getSensorCoordinates(record) {
+        if (record.lat && (record.lon || record.lng)) {
+          return [record.lat, record.lon || record.lng];
+        }
+
+        const sId = (record.sensorId || record.id || '').toLowerCase();
+        const zId = (record.zoneId || '').toLowerCase();
+        const source = (record.source || '').toLowerCase();
+
+        if (zId === 'portiersloge' || source === 'telraam') {
+          return SENSOR_LOCATIONS['portiersloge'];
+        }
+        if (zId === 'swim-area' || source === 'water') {
+          return SENSOR_LOCATIONS['swim-area'];
+        }
+
+        return SENSOR_LOCATIONS[zId] || SENSOR_LOCATIONS['general'];
+      }
 
       async function renderLiveMapMarkers() {
         try {
@@ -90,76 +104,106 @@
           if (!response.ok) throw new Error(`API error: ${response.status}`);
 
           const data = await response.json();
-          const records = data.records || [];
+          const rawRecords = data.records || [];
 
           markerGroup.clearLayers();
 
-          // Offset tracker for overlapping coordinates
-          const coordinateCounts = {};
+          // 1. Group sub-metrics back into parent core devices to maintain ~11 main markers
+          const sensorMap = new Map();
 
-          records.forEach(record => {
-            // 1. Check direct lat/lon -> check hardcoded sensorId -> fallback to zoneId -> ultimate default
-            let baseLat = record.lat;
-            let baseLng = record.lon ?? record.lng;
+          rawRecords.forEach(record => {
+            let deviceKey = record.source;
+            if (record.source === 'telraam') deviceKey = 'telraam-portiersloge';
+            else if (record.source === 'sound') deviceKey = 'sound-oe-007';
+            else if (record.source === 'water') deviceKey = 'water-binnenhaven';
+            else if (record.source === 'weather') deviceKey = 'weather-station';
+            else if (record.source === 'air') deviceKey = 'air-quality';
+            else deviceKey = record.sensorId || record.id || record.source;
 
-            if (!baseLat || !baseLng) {
-              const hardcoded = SENSOR_LOCATIONS[record.sensorId] 
-                             || SENSOR_LOCATIONS[record.zoneId] 
-                             || SENSOR_LOCATIONS['general'];
-              baseLat = hardcoded[0];
-              baseLng = hardcoded[1];
+            if (!sensorMap.has(deviceKey)) {
+              let defaultLabel = 'Sensor Station';
+              if (record.source === 'telraam') defaultLabel = 'Traffic Flow (Telraam)';
+              else if (record.source === 'sound') defaultLabel = 'Sound Level & Audio';
+              else if (record.source === 'water') defaultLabel = 'Water Temperature';
+              else if (record.source === 'weather') defaultLabel = 'Weather Station';
+              else if (record.source === 'air') defaultLabel = 'Air Quality';
+
+              sensorMap.set(deviceKey, {
+                id: deviceKey,
+                label: defaultLabel,
+                category: record.source || record.category || 'Active',
+                zoneId: record.zoneId,
+                lat: record.lat,
+                lon: record.lon || record.lng,
+                metrics: []
+              });
             }
 
-            // 2. Add tiny offset if multiple sensors share the exact same spot so all pins are clickable
+            let valStr = 'N/A';
+            if (record.value != null) {
+              const num = typeof record.value === 'number' && !Number.isInteger(record.value)
+                ? record.value.toFixed(1)
+                : record.value;
+              valStr = `${num} ${record.unit || ''}`.trim();
+            }
+
+            sensorMap.get(deviceKey).metrics.push({
+              name: record.label || record.metric,
+              value: valStr
+            });
+          });
+
+          // 2. Render core clustered markers
+          const coordinateCounts = {};
+
+          sensorMap.forEach(sensor => {
+            const [baseLat, baseLng] = getSensorCoordinates(sensor);
+
             const posKey = `${baseLat.toFixed(4)},${baseLng.toFixed(4)}`;
             coordinateCounts[posKey] = (coordinateCounts[posKey] || 0) + 1;
             const count = coordinateCounts[posKey];
 
-            const latOffset = (count - 1) * 0.00012;
-            const lngOffset = (count - 1) * 0.00012;
-            const finalLat = baseLat + latOffset;
-            const finalLng = baseLng + lngOffset;
+            const radius = count > 1 ? 0.00008 : 0;
+            const angle = (count - 1) * (2 * Math.PI / 8);
+            const finalLat = baseLat + radius * Math.cos(angle);
+            const finalLng = baseLng + radius * Math.sin(angle);
 
-            // 3. Dynamic Live Values
-            const label = record.label || record.metric || 'Sensor';
-            let liveValue = 'N/A';
-            if (record.value != null) {
-              const formattedVal = typeof record.value === 'number' && !Number.isInteger(record.value) 
-                ? record.value.toFixed(1) 
-                : record.value;
-              liveValue = `${formattedVal} ${record.unit || ''}`.trim();
+            const markerColor = SOURCE_COLORS[sensor.category.toLowerCase()] || SOURCE_COLORS['default'];
+
+            let metricsListHtml = '';
+            if (sensor.metrics.length === 1) {
+              metricsListHtml = `<div style="font-size: 13px; color: #111; font-weight: 600; margin-bottom: 4px;">Value: <span style="color: #0284c7;">${sensor.metrics[0].value}</span></div>`;
+            } else {
+              metricsListHtml = '<ul style="margin: 4px 0; padding-left: 16px; font-size: 12px; color: #333; max-height: 120px; overflow-y: auto;">';
+              sensor.metrics.forEach(m => {
+                metricsListHtml += `<li><b>${m.name}:</b> ${m.value}</li>`;
+              });
+              metricsListHtml += '</ul>';
             }
-
-            const category = record.source || record.category || 'Active';
-            const markerColor = SOURCE_COLORS[category.toLowerCase()] || SOURCE_COLORS['default'];
 
             const popupContent = `
               <div style="font-family: system-ui, sans-serif; min-width: 170px; padding: 2px;">
-                <h4 style="margin: 0 0 6px 0; font-size: 14px; color: #1a1a1a; font-weight: 600;">${label}</h4>
-                <div style="font-size: 13px; color: #111; font-weight: 600; margin-bottom: 4px;">
-                  Live: <span style="color: #0284c7;">${liveValue}</span>
-                </div>
-                <div style="font-size: 11px; color: #666;">
-                  Sensor ID: <code style="background:#f1f5f9; padding: 1px 4px; border-radius:3px;">${record.sensorId || record.id || 'N/A'}</code>
-                </div>
-                <div style="font-size: 11px; color: #666; margin-top: 2px;">
-                  Source: <span style="font-weight: 500; color: ${markerColor}; text-transform: capitalize;">${category}</span>
+                <h4 style="margin: 0 0 6px 0; font-size: 14px; color: #1a1a1a; font-weight: 600;">${sensor.label}</h4>
+                ${metricsListHtml}
+                <div style="font-size: 11px; color: #666; margin-top: 4px;">
+                  Source: <span style="font-weight: 500; color: ${markerColor}; text-transform: capitalize;">${sensor.category}</span>
                 </div>
               </div>
             `;
 
             L.marker([finalLat, finalLng], { icon: createMarkerIcon(markerColor) })
-              .bindTooltip(label, { permanent: false, direction: 'top', offset: [0, -6] })
-              .bindPopup(popupContent, { maxWidth: 250 })
+              .bindTooltip(sensor.label, { permanent: false, direction: 'top', offset: [0, -6] })
+              .bindPopup(popupContent, { maxWidth: 260 })
               .addTo(markerGroup);
           });
+
         } catch (err) {
           console.error('Failed to fetch/update map markers:', err);
         }
       }
 
+      // Initial load + polling refresh every 60 seconds
       renderLiveMapMarkers();
-      // Poll live values every 60 seconds
       setInterval(renderLiveMapMarkers, 60000);
     });
   </script>
