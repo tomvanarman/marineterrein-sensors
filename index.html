@@ -19,14 +19,18 @@ const markerGroup = L.layerGroup().addTo(map);
 
 async function renderLiveMapMarkers() {
   try {
-    // Hits port 3000 directly where your API backend lives
-    const response = await fetch('http://localhost:3000/api/ops/live/overview');
-    if (!response.ok) throw new Error(`API error: ${response.status}`);
+    // Point directly to your public dashboard backend domain
+    const PUBLIC_API = 'https://data.marineterrein.nl';
+
+    const response = await fetch(`${PUBLIC_API}/api/ops/live/overview`);
+    if (!response.ok) {
+      throw new Error(`API response error: ${response.status}`);
+    }
 
     const data = await response.json();
     const records = data.records || [];
 
-    // Clear old markers before adding fresh ones
+    // Clear old markers before drawing fresh ones
     markerGroup.clearLayers();
 
     records.forEach(record => {
@@ -59,7 +63,7 @@ async function renderLiveMapMarkers() {
   }
 }
 
-// Initial fetch + auto-refresh every 60 seconds
+// Initial load + refresh every 60 seconds
 renderLiveMapMarkers();
 setInterval(renderLiveMapMarkers, 60000);
 </script>
