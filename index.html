@@ -38,8 +38,8 @@
 
   <script>
     document.addEventListener('DOMContentLoaded', () => {
-      // Centered on Marineterrein Amsterdam
-      const map = L.map('map', { zoomControl: true }).setView([52.3728, 4.9154], 17);
+      // Centered cleanly on Marineterrein Amsterdam
+      const map = L.map('map', { zoomControl: true }).setView([52.3730, 4.9158], 17);
 
       L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
         attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/">CARTO</a>',
@@ -59,52 +59,52 @@
         });
       }
 
-      // 📍 Strictly Hardcoded Coordinates for the Requested Sensors & Cameras
+      // 📍 Distinct, well-spaced hardcoded coordinates across Marineterrein
       const HARDCODED_STATIONS = {
-        'air': {
-          label: 'Air Quality Sensor',
-          coords: [52.3726, 4.9152],
-          color: '#8b5cf6' // Purple
-        },
-        'water': {
-          label: 'Water Temperature Sensor',
-          coords: [52.3736, 4.9175],
-          color: '#06b6d4' // Cyan
-        },
-        'sound': {
-          label: 'Sound Level Sensor',
-          coords: [52.3728, 4.9154],
-          color: '#eab308' // Yellow
-        },
-        'mmwave': {
-          label: 'Millimeter Wave Cameras',
-          coords: [52.3722, 4.9145],
-          color: '#f97316' // Orange
+        'telraam': {
+          label: 'Telraam Vehicle Classifications',
+          coords: [52.3718, 4.9135], // Entrance / Portiersloge
+          color: '#0284c7' // Blue
         },
         'shuttercam': {
           label: 'MQTT Camera: Shuttercam',
-          coords: [52.3721, 4.9142],
+          coords: [52.3722, 4.9142], // South-west building edge
+          color: '#ec4899' // Pink
+        },
+        'mmwave': {
+          label: 'Millimeter Wave Cameras',
+          coords: [52.3726, 4.9148], // Central campus pathway
+          color: '#f97316' // Orange
+        },
+        'air': {
+          label: 'Air Quality Sensor',
+          coords: [52.3729, 4.9155], // Open yard center
+          color: '#8b5cf6' // Purple
+        },
+        'sound': {
+          label: 'Sound Level Sensor',
+          coords: [52.3732, 4.9150], // Mid-campus square
+          color: '#eab308' // Yellow
+        },
+        'picnic': {
+          label: 'MQTT Camera: Picnic',
+          coords: [52.3733, 4.9163], // Picnic area
           color: '#ec4899' // Pink
         },
         'terrace': {
           label: 'MQTT Camera: Terrace',
-          coords: [52.3730, 4.9165],
+          coords: [52.3736, 4.9170], // Waterfront terrace
           color: '#ec4899' // Pink
         },
         'boardwalk': {
           label: 'MQTT Camera: Boardwalk',
-          coords: [52.3734, 4.9170],
+          coords: [52.3739, 4.9175], // Boardwalk path
           color: '#ec4899' // Pink
         },
-        'picnic': {
-          label: 'MQTT Camera: Picnic',
-          coords: [52.3729, 4.9158],
-          color: '#ec4899' // Pink
-        },
-        'telraam': {
-          label: 'Telraam Vehicle Classifications',
-          coords: [52.3720, 4.9138],
-          color: '#0284c7' // Blue
+        'water': {
+          label: 'Water Temperature Sensor',
+          coords: [52.3742, 4.9181], // Binnenhaven harbour edge
+          color: '#06b6d4' // Cyan
         }
       };
 
@@ -126,7 +126,7 @@
         if (combined.includes('sound') || combined.includes('noise') || combined.includes('db')) return 'sound';
         if (combined.includes('air') || combined.includes('pm25') || combined.includes('pm10') || combined.includes('quality')) return 'air';
 
-        return 'sound'; // Default fallback
+        return 'sound'; 
       }
 
       async function renderLiveMapMarkers() {
@@ -140,7 +140,7 @@
 
           markerGroup.clearLayers();
 
-          // Initialize station map with all predefined requested categories
+          // Initialize station map with requested categories
           const stationMap = new Map();
           Object.keys(HARDCODED_STATIONS).forEach(key => {
             stationMap.set(key, {
@@ -148,58 +148,40 @@
               label: HARDCODED_STATIONS[key].label,
               coords: HARDCODED_STATIONS[key].coords,
               color: HARDCODED_STATIONS[key].color,
-              metrics: []
+              rawValues: []
             });
           });
 
-          // Sort incoming records into their designated station buckets
+          // Sort incoming records into station buckets
           rawRecords.forEach(record => {
             const stationKey = getStationKey(record);
-            if (stationMap.has(stationKey)) {
-              let valStr = 'N/A';
-              if (record.value != null) {
-                const num = typeof record.value === 'number' && !Number.isInteger(record.value)
-                  ? record.value.toFixed(1)
-                  : record.value;
-                valStr = `${num} ${record.unit || ''}`.trim();
-              }
-
-              stationMap.get(stationKey).metrics.push({
-                name: record.label || record.metric || 'Value',
-                value: valStr
+            if (stationMap.has(stationKey) && record.value != null) {
+              stationMap.get(stationKey).rawValues.push({
+                num: Number(record.value) || 0,
+                unit: record.unit || ''
               });
             }
           });
 
-          // Render each station at its exact hardcoded position
+          // Render each station with a single aggregated "big idea" total number
           stationMap.forEach(station => {
-            let metricsListHtml = '';
-            if (station.metrics.length === 0) {
-              metricsListHtml = `<div style="font-size: 13px; color: #666; font-style: italic; margin-bottom: 4px;">No live feed available</div>`;
-            } else if (station.metrics.length === 1) {
-              metricsListHtml = `<div style="font-size: 13px; color: #111; font-weight: 600; margin-bottom: 4px;">Value: <span style="color: #0284c7;">${station.metrics[0].value}</span></div>`;
-            } else {
-              // Deduplicate sub-metrics list cleanly
-              const uniqueMetrics = [];
-              const seen = new Set();
-              station.metrics.forEach(m => {
-                if (!seen.has(m.name)) {
-                  seen.add(m.name);
-                  uniqueMetrics.push(m);
-                }
-              });
-
-              metricsListHtml = '<ul style="margin: 4px 0; padding-left: 16px; font-size: 12px; color: #333; max-height: 120px; overflow-y: auto;">';
-              uniqueMetrics.forEach(m => {
-                metricsListHtml += `<li><b>${m.name}:</b> ${m.value}</li>`;
-              });
-              metricsListHtml += '</ul>';
+            let displayVal = 'N/A';
+            
+            if (station.rawValues.length > 0) {
+              // Sum up all sub-metrics to create one big aggregate total number
+              const totalSum = station.rawValues.reduce((acc, curr) => acc + curr.num, 0);
+              const unit = station.rawValues[0].unit; // Grab the shared unit (e.g. count/hour)
+              
+              const formattedNum = Number.isInteger(totalSum) ? totalSum : totalSum.toFixed(1);
+              displayVal = `${formattedNum} ${unit}`.trim();
             }
 
             const popupContent = `
-              <div style="font-family: system-ui, sans-serif; min-width: 180px; padding: 2px;">
+              <div style="font-family: system-ui, sans-serif; min-width: 170px; padding: 2px;">
                 <h4 style="margin: 0 0 6px 0; font-size: 14px; color: #1a1a1a; font-weight: 600;">${station.label}</h4>
-                ${metricsListHtml}
+                <div style="font-size: 13px; color: #111; font-weight: 600; margin-bottom: 4px;">
+                  Total: <span style="color: #0284c7;">${displayVal}</span>
+                </div>
                 <div style="font-size: 11px; color: #666; margin-top: 4px;">
                   Status: <span style="font-weight: 500; color: ${station.color};">Active</span>
                 </div>
@@ -208,7 +190,7 @@
 
             L.marker(station.coords, { icon: createMarkerIcon(station.color) })
               .bindTooltip(station.label, { permanent: false, direction: 'top', offset: [0, -6] })
-              .bindPopup(popupContent, { maxWidth: 260 })
+              .bindPopup(popupContent, { maxWidth: 240 })
               .addTo(markerGroup);
           });
 
