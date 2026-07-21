@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Marineterrein Live Sensors Map</title>
+  <title>Marineterrein Live Sensors & Cameras Map</title>
 
   <!-- Prevent favicon 404 console log -->
   <link rel="icon" href="data:,">
@@ -49,7 +49,7 @@
 
       const markerGroup = L.layerGroup().addTo(map);
 
-      // Custom marker icon style generator
+      // Custom marker icon generator
       function createMarkerIcon(color = '#2f9e44') {
         return L.divIcon({
           className: '',
@@ -59,42 +59,74 @@
         });
       }
 
-      // 📍 Physical locations for core sensor stations
-      const SENSOR_LOCATIONS = {
-        'portiersloge': [52.3720, 4.9140], // Entrance Traffic Camera (Telraam)
-        'swim-area':    [52.3735, 4.9172], // Inner Harbour Water Sensor
-        'voorwerf':     [52.3728, 4.9160], // Open Yard Area
-        'general':      [52.3728, 4.9154]  // Roof Weather Station & Sound Sensor
-      };
-
-      // Sensor Category Color Theme (Properly quoted hex codes)
-      const SOURCE_COLORS = {
-        'telraam': '#0284c7', // Traffic (Blue)
-        'sound':   '#eab308', // Sound (Yellow)
-        'water':   '#06b6d4', // Water (Cyan)
-        'weather': '#10b981', // Weather (Green)
-        'air':     '#8b5cf6', // Air Quality (Purple)
-        'default': '#2f9e44'
-      };
-
-      // Helper to determine exact lat/lng for a record
-      function getSensorCoordinates(record) {
-        if (record.lat && (record.lon || record.lng)) {
-          return [record.lat, record.lon || record.lng];
+      // 📍 Strictly Hardcoded Coordinates for the Requested Sensors & Cameras
+      const HARDCODED_STATIONS = {
+        'air': {
+          label: 'Air Quality Sensor',
+          coords: [52.3726, 4.9152],
+          color: '#8b5cf6' // Purple
+        },
+        'water': {
+          label: 'Water Temperature Sensor',
+          coords: [52.3736, 4.9175],
+          color: '#06b6d4' // Cyan
+        },
+        'sound': {
+          label: 'Sound Level Sensor',
+          coords: [52.3728, 4.9154],
+          color: '#eab308' // Yellow
+        },
+        'mmwave': {
+          label: 'Millimeter Wave Cameras',
+          coords: [52.3722, 4.9145],
+          color: '#f97316' // Orange
+        },
+        'shuttercam': {
+          label: 'MQTT Camera: Shuttercam',
+          coords: [52.3721, 4.9142],
+          color: '#ec4899' // Pink
+        },
+        'terrace': {
+          label: 'MQTT Camera: Terrace',
+          coords: [52.3730, 4.9165],
+          color: '#ec4899' // Pink
+        },
+        'boardwalk': {
+          label: 'MQTT Camera: Boardwalk',
+          coords: [52.3734, 4.9170],
+          color: '#ec4899' // Pink
+        },
+        'picnic': {
+          label: 'MQTT Camera: Picnic',
+          coords: [52.3729, 4.9158],
+          color: '#ec4899' // Pink
+        },
+        'telraam': {
+          label: 'Telraam Vehicle Classifications',
+          coords: [52.3720, 4.9138],
+          color: '#0284c7' // Blue
         }
+      };
 
+      // Matcher function to route API records to the correct hardcoded key
+      function getStationKey(record) {
         const sId = (record.sensorId || record.id || '').toLowerCase();
-        const zId = (record.zoneId || '').toLowerCase();
+        const label = (record.label || '').toLowerCase();
+        const metric = (record.metric || '').toLowerCase();
         const source = (record.source || '').toLowerCase();
+        const combined = `${sId} ${label} ${metric} ${source}`;
 
-        if (zId === 'portiersloge' || source === 'telraam') {
-          return SENSOR_LOCATIONS['portiersloge'];
-        }
-        if (zId === 'swim-area' || source === 'water') {
-          return SENSOR_LOCATIONS['swim-area'];
-        }
+        if (combined.includes('shuttercam')) return 'shuttercam';
+        if (combined.includes('terrace')) return 'terrace';
+        if (combined.includes('boardwalk')) return 'boardwalk';
+        if (combined.includes('picnic')) return 'picnic';
+        if (combined.includes('mmwave') || combined.includes('millimeter')) return 'mmwave';
+        if (combined.includes('telraam') || combined.includes('vehicle') || combined.includes('car') || combined.includes('bus') || combined.includes('pedestrian')) return 'telraam';
+        if (combined.includes('water') || combined.includes('temp')) return 'water';
+        if (combined.includes('sound') || combined.includes('noise') || combined.includes('db')) return 'sound';
+        if (combined.includes('air') || combined.includes('pm25') || combined.includes('pm10') || combined.includes('quality')) return 'air';
 
-        return SENSOR_LOCATIONS[zId] || SENSOR_LOCATIONS['general'];
+        return 'sound'; // Default fallback
       }
 
       async function renderLiveMapMarkers() {
@@ -108,91 +140,74 @@
 
           markerGroup.clearLayers();
 
-          // 1. Group sub-metrics back into parent core devices to maintain ~11 main markers
-          const sensorMap = new Map();
-
-          rawRecords.forEach(record => {
-            let deviceKey = record.source;
-            if (record.source === 'telraam') deviceKey = 'telraam-portiersloge';
-            else if (record.source === 'sound') deviceKey = 'sound-oe-007';
-            else if (record.source === 'water') deviceKey = 'water-binnenhaven';
-            else if (record.source === 'weather') deviceKey = 'weather-station';
-            else if (record.source === 'air') deviceKey = 'air-quality';
-            else deviceKey = record.sensorId || record.id || record.source;
-
-            if (!sensorMap.has(deviceKey)) {
-              let defaultLabel = 'Sensor Station';
-              if (record.source === 'telraam') defaultLabel = 'Traffic Flow (Telraam)';
-              else if (record.source === 'sound') defaultLabel = 'Sound Level & Audio';
-              else if (record.source === 'water') defaultLabel = 'Water Temperature';
-              else if (record.source === 'weather') defaultLabel = 'Weather Station';
-              else if (record.source === 'air') defaultLabel = 'Air Quality';
-
-              sensorMap.set(deviceKey, {
-                id: deviceKey,
-                label: defaultLabel,
-                category: record.source || record.category || 'Active',
-                zoneId: record.zoneId,
-                lat: record.lat,
-                lon: record.lon || record.lng,
-                metrics: []
-              });
-            }
-
-            let valStr = 'N/A';
-            if (record.value != null) {
-              const num = typeof record.value === 'number' && !Number.isInteger(record.value)
-                ? record.value.toFixed(1)
-                : record.value;
-              valStr = `${num} ${record.unit || ''}`.trim();
-            }
-
-            sensorMap.get(deviceKey).metrics.push({
-              name: record.label || record.metric,
-              value: valStr
+          // Initialize station map with all predefined requested categories
+          const stationMap = new Map();
+          Object.keys(HARDCODED_STATIONS).forEach(key => {
+            stationMap.set(key, {
+              key: key,
+              label: HARDCODED_STATIONS[key].label,
+              coords: HARDCODED_STATIONS[key].coords,
+              color: HARDCODED_STATIONS[key].color,
+              metrics: []
             });
           });
 
-          // 2. Render core clustered markers
-          const coordinateCounts = {};
+          // Sort incoming records into their designated station buckets
+          rawRecords.forEach(record => {
+            const stationKey = getStationKey(record);
+            if (stationMap.has(stationKey)) {
+              let valStr = 'N/A';
+              if (record.value != null) {
+                const num = typeof record.value === 'number' && !Number.isInteger(record.value)
+                  ? record.value.toFixed(1)
+                  : record.value;
+                valStr = `${num} ${record.unit || ''}`.trim();
+              }
 
-          sensorMap.forEach(sensor => {
-            const [baseLat, baseLng] = getSensorCoordinates(sensor);
+              stationMap.get(stationKey).metrics.push({
+                name: record.label || record.metric || 'Value',
+                value: valStr
+              });
+            }
+          });
 
-            const posKey = `${baseLat.toFixed(4)},${baseLng.toFixed(4)}`;
-            coordinateCounts[posKey] = (coordinateCounts[posKey] || 0) + 1;
-            const count = coordinateCounts[posKey];
-
-            const radius = count > 1 ? 0.00008 : 0;
-            const angle = (count - 1) * (2 * Math.PI / 8);
-            const finalLat = baseLat + radius * Math.cos(angle);
-            const finalLng = baseLng + radius * Math.sin(angle);
-
-            const markerColor = SOURCE_COLORS[sensor.category.toLowerCase()] || SOURCE_COLORS['default'];
-
+          // Render each station at its exact hardcoded position
+          stationMap.forEach(station => {
             let metricsListHtml = '';
-            if (sensor.metrics.length === 1) {
-              metricsListHtml = `<div style="font-size: 13px; color: #111; font-weight: 600; margin-bottom: 4px;">Value: <span style="color: #0284c7;">${sensor.metrics[0].value}</span></div>`;
+            if (station.metrics.length === 0) {
+              metricsListHtml = `<div style="font-size: 13px; color: #666; font-style: italic; margin-bottom: 4px;">No live feed available</div>`;
+            } else if (station.metrics.length === 1) {
+              metricsListHtml = `<div style="font-size: 13px; color: #111; font-weight: 600; margin-bottom: 4px;">Value: <span style="color: #0284c7;">${station.metrics[0].value}</span></div>`;
             } else {
+              // Deduplicate sub-metrics list cleanly
+              const uniqueMetrics = [];
+              const seen = new Set();
+              station.metrics.forEach(m => {
+                if (!seen.has(m.name)) {
+                  seen.add(m.name);
+                  uniqueMetrics.push(m);
+                }
+              });
+
               metricsListHtml = '<ul style="margin: 4px 0; padding-left: 16px; font-size: 12px; color: #333; max-height: 120px; overflow-y: auto;">';
-              sensor.metrics.forEach(m => {
+              uniqueMetrics.forEach(m => {
                 metricsListHtml += `<li><b>${m.name}:</b> ${m.value}</li>`;
               });
               metricsListHtml += '</ul>';
             }
 
             const popupContent = `
-              <div style="font-family: system-ui, sans-serif; min-width: 170px; padding: 2px;">
-                <h4 style="margin: 0 0 6px 0; font-size: 14px; color: #1a1a1a; font-weight: 600;">${sensor.label}</h4>
+              <div style="font-family: system-ui, sans-serif; min-width: 180px; padding: 2px;">
+                <h4 style="margin: 0 0 6px 0; font-size: 14px; color: #1a1a1a; font-weight: 600;">${station.label}</h4>
                 ${metricsListHtml}
                 <div style="font-size: 11px; color: #666; margin-top: 4px;">
-                  Source: <span style="font-weight: 500; color: ${markerColor}; text-transform: capitalize;">${sensor.category}</span>
+                  Status: <span style="font-weight: 500; color: ${station.color};">Active</span>
                 </div>
               </div>
             `;
 
-            L.marker([finalLat, finalLng], { icon: createMarkerIcon(markerColor) })
-              .bindTooltip(sensor.label, { permanent: false, direction: 'top', offset: [0, -6] })
+            L.marker(station.coords, { icon: createMarkerIcon(station.color) })
+              .bindTooltip(station.label, { permanent: false, direction: 'top', offset: [0, -6] })
               .bindPopup(popupContent, { maxWidth: 260 })
               .addTo(markerGroup);
           });
