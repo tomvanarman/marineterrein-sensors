@@ -1,82 +1,116 @@
-<script>
-const map = L.map('map', { zoomControl: true }).setView([52.3730, 4.9162], 16);
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Marineterrein Sensors</title>
 
-L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/">CARTO</a>',
-  subdomains: 'abcd',
-  maxZoom: 19
-}).addTo(map);
+  <!-- Prevent favicon 404 error -->
+  <link rel="icon" href="data:,">
 
-const markerIcon = L.divIcon({
-  className: '',
-  html: `<div style="width:16px;height:16px;border-radius:50%;background:#2f9e44;border:3px solid #fff;box-sizing:border-box;box-shadow:0 1px 3px rgba(0,0,0,0.25);cursor:pointer;"></div>`,
-  iconSize: [16, 16],
-  iconAnchor: [8, 8]
-});
+  <!-- 1. Leaflet CSS (Must be in <head>) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" 
+        crossorigin="" />
 
-// LayerGroup prevents old pins from sticking around on updates
-const markerGroup = L.layerGroup().addTo(map);
+  <!-- 2. Leaflet JavaScript (MUST load BEFORE your custom script) -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" 
+          crossorigin=""></script>
 
-// Map missing coordinates by zoneId so pins don't all stack on one spot
-const ZONE_COORDINATES = {
-  'portiersloge': [52.3720, 4.9140], // Traffic / Telraam
-  'swim-area':    [52.3735, 4.9172], // Water temperature
-  'general':      [52.3728, 4.9154]  // General / Weather / Air
-};
+  <style>
+    #map {
+      height: 100vh;
+      width: 100%;
+    }
+    body, html {
+      margin: 0;
+      padding: 0;
+    }
+  </style>
+</head>
+<body>
 
-async function renderLiveMapMarkers() {
-  try {
-    const PUBLIC_API = 'https://data.marineterrein.nl';
-    const response = await fetch(`${PUBLIC_API}/api/ops/live/overview`);
-    if (!response.ok) throw new Error(`API error: ${response.status}`);
+  <div id="map"></div>
 
-    const data = await response.json();
-    const records = data.records || [];
+  <!-- 3. Your Map Code (Runs after Leaflet is loaded) -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const map = L.map('map', { zoomControl: true }).setView([52.3730, 4.9162], 16);
 
-    markerGroup.clearLayers();
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 19
+      }).addTo(map);
 
-    records.forEach(record => {
-      // 1. Use record coordinates if available, otherwise fall back to zone coords
-      const zoneCoords = ZONE_COORDINATES[record.zoneId] || [52.3728, 4.9154];
-      const lat = record.lat ?? zoneCoords[0];
-      const lng = record.lon ?? record.lng ?? zoneCoords[1];
+      const markerIcon = L.divIcon({
+        className: '',
+        html: `<div style="width:16px;height:16px;border-radius:50%;background:#2f9e44;border:3px solid #fff;box-sizing:border-box;box-shadow:0 1px 3px rgba(0,0,0,0.25);cursor:pointer;"></div>`,
+        iconSize: [16, 16],
+        iconAnchor: [8, 8]
+      });
 
-      // 2. Format live value cleanly
-      const label = record.label || record.metric || 'Sensor';
-      let liveValue = 'N/A';
-      if (record.value != null) {
-        // Round floats (like dB sound level) to 1 decimal place
-        const formattedVal = typeof record.value === 'number' && !Number.isInteger(record.value) 
-          ? record.value.toFixed(1) 
-          : record.value;
-        liveValue = `${formattedVal} ${record.unit || ''}`.trim();
+      const markerGroup = L.layerGroup().addTo(map);
+
+      const ZONE_COORDINATES = {
+        'portiersloge': [52.3720, 4.9140],
+        'swim-area':    [52.3735, 4.9172],
+        'general':      [52.3728, 4.9154]
+      };
+
+      async function renderLiveMapMarkers() {
+        try {
+          const PUBLIC_API = 'https://data.marineterrein.nl';
+          const response = await fetch(`${PUBLIC_API}/api/ops/live/overview`);
+          if (!response.ok) throw new Error(`API error: ${response.status}`);
+
+          const data = await response.json();
+          const records = data.records || [];
+
+          markerGroup.clearLayers();
+
+          records.forEach(record => {
+            const zoneCoords = ZONE_COORDINATES[record.zoneId] || [52.3728, 4.9154];
+            const lat = record.lat ?? zoneCoords[0];
+            const lng = record.lon ?? record.lng ?? zoneCoords[1];
+
+            const label = record.label || record.metric || 'Sensor';
+            let liveValue = 'N/A';
+            if (record.value != null) {
+              const formattedVal = typeof record.value === 'number' && !Number.isInteger(record.value) 
+                ? record.value.toFixed(1) 
+                : record.value;
+              liveValue = `${formattedVal} ${record.unit || ''}`.trim();
+            }
+
+            const category = record.source || record.category || 'Active';
+
+            const popupContent = `
+              <div style="font-family: system-ui, sans-serif; min-width: 160px; padding: 2px;">
+                <h4 style="margin: 0 0 6px 0; font-size: 14px; color: #1a1a1a; font-weight: 600;">${label}</h4>
+                <div style="font-size: 13px; color: #111; font-weight: 600; margin-bottom: 4px;">
+                  Value: <span style="color: #0284c7;">${liveValue}</span>
+                </div>
+                <div style="font-size: 11px; color: #666;">
+                  Source: <span style="font-weight: 500; color: #2f9e44; text-transform: capitalize;">${category}</span>
+                </div>
+              </div>
+            `;
+
+            L.marker([lat, lng], { icon: markerIcon })
+              .bindTooltip(label, { permanent: false, direction: 'top', offset: [0, -6] })
+              .bindPopup(popupContent, { maxWidth: 250 })
+              .addTo(markerGroup);
+          });
+        } catch (err) {
+          console.error('Failed to fetch/update map markers:', err);
+        }
       }
 
-      const category = record.source || record.category || 'Active';
-
-      const popupContent = `
-        <div style="font-family: system-ui, sans-serif; min-width: 160px; padding: 2px;">
-          <h4 style="margin: 0 0 6px 0; font-size: 14px; color: #1a1a1a; font-weight: 600;">${label}</h4>
-          <div style="font-size: 13px; color: #111; font-weight: 600; margin-bottom: 4px;">
-            Value: <span style="color: #0284c7;">${liveValue}</span>
-          </div>
-          <div style="font-size: 11px; color: #666;">
-            Source: <span style="font-weight: 500; color: #2f9e44; text-transform: capitalize;">${category}</span>
-          </div>
-        </div>
-      `;
-
-      L.marker([lat, lng], { icon: markerIcon })
-        .bindTooltip(label, { permanent: false, direction: 'top', offset: [0, -6] })
-        .bindPopup(popupContent, { maxWidth: 250 })
-        .addTo(markerGroup);
+      renderLiveMapMarkers();
+      setInterval(renderLiveMapMarkers, 60000);
     });
-  } catch (err) {
-    console.error('Failed to fetch/update map markers:', err);
-  }
-}
-
-// Initial load + refresh every 60 seconds
-renderLiveMapMarkers();
-setInterval(renderLiveMapMarkers, 60000);
-</script>
+  </script>
+</body>
+</html>
