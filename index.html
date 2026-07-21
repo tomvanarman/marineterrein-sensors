@@ -126,90 +126,153 @@
       async function renderLiveMapMarkers() {
         try {
           const PUBLIC_API = 'https://data.marineterrein.nl';
-          const response = await fetch(`${PUBLIC_API}/api/ops/live/overview`);
-          if (!response.ok) throw new Error(`API error: ${response.status}`);
-
-          const data = await response.json();
-          const rawRecords = data.records || [];
-
+      
+          // Fetch both APIs simultaneously
+          const [overviewResponse, husenseResponse] = await Promise.all([
+            fetch(`${PUBLIC_API}/api/ops/live/overview`),
+            fetch(`${PUBLIC_API}/api/husense/presence`)
+          ]);
+      
+          if (!overviewResponse.ok) {
+            throw new Error(`Overview API error: ${overviewResponse.status}`);
+          }
+      
+          if (!husenseResponse.ok) {
+            throw new Error(`HuSense API error: ${husenseResponse.status}`);
+          }
+      
+          const overviewData = await overviewResponse.json();
+          const husenseData = await husenseResponse.json();
+      
+          const rawRecords = overviewData.records || [];
+      
           markerGroup.clearLayers();
-
+      
           const stationMap = new Map();
+      
           Object.keys(HARDCODED_STATIONS).forEach(key => {
             stationMap.set(key, {
-              key: key,
+              key,
               label: HARDCODED_STATIONS[key].label,
               coords: HARDCODED_STATIONS[key].coords,
               color: HARDCODED_STATIONS[key].color,
-              displayValue: null
+              displayValue: "Active Feed"
             });
           });
-
-          // Extract standard metric values from the API payload
-          let trafficFlow = 'N/A';
-          let waterTemp = 'N/A';
-          let soundLevel = 'N/A';
-          let airQuality = 'N/A';
-
+      
+          // -------------------------
+          // Overview API
+          // -------------------------
+      
           rawRecords.forEach(record => {
-            if (record.metric === 'total_flow') {
-              trafficFlow = `${record.value} total count`;
+      
+            switch (record.metric) {
+      
+              case "water_temperature_c":
+                stationMap.get("water").displayValue =
+                  `${record.value} °C`;
+                break;
+      
+              case "sound_level_db":
+                stationMap.get("sound").displayValue =
+                  `${Number(record.value).toFixed(1)} dB`;
+                break;
+      
+              case "pm25":
+                stationMap.get("air").displayValue =
+                  `${record.value} PM2.5`;
+                break;
+      
             }
-            if (record.metric === 'water_temperature_c') {
-              waterTemp = `${record.value} °C`;
+      
+            // ABRI
+            const text = JSON.stringify(record).toLowerCase();
+      
+            if (text.includes("abri")) {
+              stationMap.get("abri").displayValue =
+                record.value != null
+                  ? `${record.value} ${record.unit || ""}`.trim()
+                  : "Active";
             }
-            if (record.metric === 'sound_level_db') {
-              waterTemp = `${Number(record.value).toFixed(1)} dB`;
-              soundLevel = `${Number(record.value).toFixed(1)} dB`;
-            }
-            if (record.metric === 'pm25') {
-              airQuality = `${record.value} PM2.5`;
-            }
+      
           });
-
-          // Assign values based on station category
-          stationMap.forEach((station, key) => {
-            if (key === 'water') {
-              station.displayValue = waterTemp;
-            } else if (key === 'air') {
-              station.displayValue = airQuality;
-            } else if (key === 'sound') {
-              station.displayValue = soundLevel;
-            } else if (key.includes('foot') || key === 'vehicle') {
-              station.displayValue = trafficFlow;
-            } else {
-              station.displayValue = 'Active Feed';
+      
+          // -------------------------
+          // HuSense API
+          // -------------------------
+      
+          husenseData.forEach(sensor => {
+      
+            switch (sensor.name) {
+      
+              case "Marineterrein Hoofd Ingang":
+                stationMap.get("foot_main").displayValue =
+                  `${sensor.presenceCount} visitors`;
+                break;
+      
+              case "Marineterrein Commandantsbrug":
+                stationMap.get("foot_bridge").displayValue =
+                  `${sensor.presenceCount} visitors`;
+                break;
+      
+              case "Marineterrein Oude Poort":
+                stationMap.get("foot_oude").displayValue =
+                  `${sensor.presenceCount} visitors`;
+                break;
+      
             }
+      
           });
-
-          // Render all 12 markers onto the Leaflet map
+      
+          // -------------------------
+          // Draw markers
+          // -------------------------
+      
           stationMap.forEach(station => {
+      
             const popupContent = `
-              <div style="font-family: system-ui, sans-serif; min-width: 170px; padding: 2px;">
-                <h4 style="margin: 0 0 6px 0; font-size: 14px; color: #1a1a1a; font-weight: 600;">${station.label}</h4>
-                <div style="font-size: 13px; color: #111; font-weight: 600; margin-bottom: 4px;">
-                  Value: <span style="color: #0284c7;">${station.displayValue}</span>
+              <div style="font-family:system-ui,sans-serif;min-width:170px;">
+                <h4 style="margin:0 0 6px;font-size:14px;">
+                  ${station.label}
+                </h4>
+      
+                <div style="font-size:13px;font-weight:600;">
+                  Value:
+                  <span style="color:#0284c7;">
+                    ${station.displayValue}
+                  </span>
                 </div>
-                <div style="font-size: 11px; color: #666; margin-top: 4px;">
-                  Status: <span style="font-weight: 500; color: ${station.color};">Active</span>
+      
+                <div style="font-size:11px;color:#666;margin-top:6px;">
+                  Status:
+                  <span style="color:${station.color};font-weight:600;">
+                    Active
+                  </span>
                 </div>
               </div>
             `;
-
-            L.marker(station.coords, { icon: createMarkerIcon(station.color) })
-              .bindTooltip(station.label, { permanent: false, direction: 'top', offset: [0, -6] })
-              .bindPopup(popupContent, { maxWidth: 240 })
-              .addTo(markerGroup);
+      
+            L.marker(station.coords, {
+              icon: createMarkerIcon(station.color)
+            })
+            .bindTooltip(station.label, {
+              direction: "top",
+              offset: [0, -6]
+            })
+            .bindPopup(popupContent)
+            .addTo(markerGroup);
+      
           });
-
+      
         } catch (err) {
-          console.error('Failed to fetch/update map markers:', err);
+          console.error(err);
         }
       }
 
       // Initial load + polling refresh every 60 seconds
       renderLiveMapMarkers();
       setInterval(renderLiveMapMarkers, 60000);
+
     });
   </script>
 </body>
