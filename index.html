@@ -1,279 +1,462 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Marineterrein Live Sensors & Cameras Map</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marineterrein Live Sensors & Cameras Map</title>
 
-  <!-- Prevent favicon 404 console log -->
-  <link rel="icon" href="data:,">
+    <link rel="icon" href="data:,">
 
-  <!-- Leaflet CSS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
-        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" 
-        crossorigin="" />
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
 
-  <!-- Leaflet JS -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
-          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" 
-          crossorigin=""></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <style>
-    body, html {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      width: 100%;
-      font-family: system-ui, -apple-system, sans-serif;
-    }
-    #map {
-      height: 100vh;
-      width: 100%;
-    }
-  </style>
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            font-family: system-ui, sans-serif;
+        }
+
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+    </style>
 </head>
+
 <body>
 
-  <div id="map"></div>
+<div id="map"></div>
 
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      // Centered cleanly on Marineterrein Amsterdam
-      const map = L.map('map', { zoomControl: true }).setView([52.3730, 4.9158], 17);
+<script>
 
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/">CARTO</a>',
-        subdomains: 'abcd',
-        maxZoom: 19
-      }).addTo(map);
+document.addEventListener("DOMContentLoaded", () => {
 
-      const markerGroup = L.layerGroup().addTo(map);
+    const PUBLIC_API = "https://data.marineterrein.nl";
 
-      // Custom marker icon generator
-      function createMarkerIcon(color = '#2f9e44') {
+    const map = L.map("map", {
+        zoomControl: true
+    }).setView([52.3730, 4.9158], 17);
+
+    L.tileLayer(
+        "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+        {
+            subdomains: "abcd",
+            maxZoom: 19,
+            attribution:
+                '&copy; OpenStreetMap contributors &copy; CARTO'
+        }
+    ).addTo(map);
+
+    const markerGroup = L.layerGroup().addTo(map);
+
+    function createMarkerIcon(color) {
         return L.divIcon({
-          className: '',
-          html: `<div style="width:18px;height:18px;border-radius:50%;background:${color};border:3px solid #fff;box-sizing:border-box;box-shadow:0 2px 4px rgba(0,0,0,0.3);cursor:pointer;"></div>`,
-          iconSize: [18, 18],
-          iconAnchor: [9, 9]
+            className: "",
+            html: `
+                <div
+                    style="
+                        width:18px;
+                        height:18px;
+                        border-radius:50%;
+                        background:${color};
+                        border:3px solid white;
+                        box-sizing:border-box;
+                        box-shadow:0 2px 5px rgba(0,0,0,.35);
+                    ">
+                </div>
+            `,
+            iconSize: [18,18],
+            iconAnchor: [9,9]
         });
-      }
+    }
 
-      // 📍 Updated stations with exact coordinates and names provided
-      const HARDCODED_STATIONS = {
-        'abri': {
-          label: 'ABRI Screen (Visitor Dashboard)',
-          coords: [52.3726881, 4.9175541],
-          color: '#ec4899' // Pink
+    const HARDCODED_STATIONS = {
+
+        abri: {
+            label: "ABRI Screen (Visitor Dashboard)",
+            coords: [52.3726881,4.9175541],
+            color: "#ec4899"
         },
-        'sound': {
-          label: 'Urban Sound Classification',
-          coords: [52.3728175, 4.9166609],
-          color: '#eab308' // Yellow
+
+        sound: {
+            label: "Urban Sound Classification",
+            coords: [52.3728175,4.9166609],
+            color: "#eab308"
         },
-        'foot_main': {
-          label: 'Foot Traffic Flow - Main Entrance',
-          coords: [52.3725506, 4.9178169],
-          color: '#0284c7' // Blue
+
+        foot_main: {
+            label: "Foot Traffic Flow - Main Entrance",
+            coords: [52.3725506,4.9178169],
+            color: "#0284c7"
         },
-        'vehicle': {
-          label: 'Vehicle Type Detection',
-          coords: [52.3731205, 4.9167735],
-          color: '#0284c7' // Blue
+
+        vehicle: {
+            label: "Vehicle Type Detection (Telraam)",
+            coords: [52.3731205,4.9167735],
+            color: "#0284c7"
         },
-        'terrace': {
-          label: 'Busyness Counter - Terrace',
-          coords: [52.3731254, 4.9166904],
-          color: '#f97316' // Orange
+
+        terrace: {
+            label: "Busyness Counter - Terrace",
+            coords: [52.3731254,4.9166904],
+            color: "#f97316"
         },
-        'water': {
-          label: 'Water Temperature',
-          coords: [52.3732122, 4.9144507],
-          color: '#06b6d4' // Cyan
+
+        water: {
+            label: "Water Temperature",
+            coords: [52.3732122,4.9144507],
+            color: "#06b6d4"
         },
-        'ams_inst': {
-          label: 'Busyness Counter - AMS-Inst',
-          coords: [52.3737029, 4.9150122],
-          color: '#f97316' // Orange
+
+        ams_inst: {
+            label: "Busyness Counter - AMS-Inst (Shuttercam)",
+            coords: [52.3737029,4.9150122],
+            color: "#f97316"
         },
-        'boardwalk': {
-          label: 'Busyness Counter - Boardwalk Counter',
-          coords: [52.3725291, 4.9153350],
-          color: '#f97316' // Orange
+
+        boardwalk: {
+            label: "Busyness Counter - Boardwalk",
+            coords: [52.3725291,4.9153350],
+            color: "#f97316"
         },
-        'picnic': {
-          label: 'Busyness Counter - Picnic Counter',
-          coords: [52.3728910, 4.9166064],
-          color: '#f97316' // Orange
+
+        picnic: {
+            label: "Busyness Counter - Picnic",
+            coords: [52.3728910,4.9166064],
+            color: "#f97316"
         },
-        'foot_bridge': {
-          label: 'Foot Traffic Flow - Bridge Entrance',
-          coords: [52.3756498, 4.9143518],
-          color: '#0284c7' // Blue
+
+        foot_bridge: {
+            label: "Foot Traffic Flow - Bridge Entrance",
+            coords: [52.3756498,4.9143518],
+            color: "#0284c7"
         },
-        'foot_oude': {
-          label: 'Foot Traffic Flow - Oude Poort',
-          coords: [52.3718495, 4.9163502],
-          color: '#0284c7' // Blue
+
+        foot_oude: {
+            label: "Foot Traffic Flow - Oude Poort",
+            coords: [52.3718495,4.9163502],
+            color: "#0284c7"
         },
-        'air': {
-          label: 'Air Quality Monitor - Park',
-          coords: [52.3724122, 4.9174840],
-          color: '#8b5cf6' // Purple
+
+        air: {
+            label: "Air Quality Monitor",
+            coords: [52.3724122,4.9174840],
+            color: "#8b5cf6"
         }
-      };
 
-      async function renderLiveMapMarkers() {
+    };
+
+    async function renderLiveMapMarkers() {
+
         try {
-          const PUBLIC_API = 'https://data.marineterrein.nl';
-      
-          // Fetch both APIs simultaneously
-          const [overviewResponse, husenseResponse] = await Promise.all([
-            fetch(`${PUBLIC_API}/api/ops/live/overview`),
-            fetch(`${PUBLIC_API}/api/husense/presence`)
-          ]);
-      
-          if (!overviewResponse.ok) {
-            throw new Error(`Overview API error: ${overviewResponse.status}`);
-          }
-      
-          if (!husenseResponse.ok) {
-            throw new Error(`HuSense API error: ${husenseResponse.status}`);
-          }
-      
-          const overviewData = await overviewResponse.json();
-          const husenseData = await husenseResponse.json();
-      
-          const rawRecords = overviewData.records || [];
-      
-          markerGroup.clearLayers();
-      
-          const stationMap = new Map();
-      
-          Object.keys(HARDCODED_STATIONS).forEach(key => {
-            stationMap.set(key, {
-              key,
-              label: HARDCODED_STATIONS[key].label,
-              coords: HARDCODED_STATIONS[key].coords,
-              color: HARDCODED_STATIONS[key].color,
-              displayValue: "Active Feed"
+
+            const [
+                overviewResponse,
+                husenseResponse,
+                mqttResponse
+            ] = await Promise.all([
+                fetch(`${PUBLIC_API}/api/ops/live/overview`),
+                fetch(`${PUBLIC_API}/api/husense/presence`),
+                fetch(`${PUBLIC_API}/api/busyness/mqtt`)
+            ]);
+
+            if (!overviewResponse.ok)
+                throw new Error("Failed to load overview API");
+
+            if (!husenseResponse.ok)
+                throw new Error("Failed to load HuSense API");
+
+            if (!mqttResponse.ok)
+                throw new Error("Failed to load MQTT API");
+
+            const overview = await overviewResponse.json();
+            const husense = await husenseResponse.json();
+            const mqtt = await mqttResponse.json();
+
+            markerGroup.clearLayers();
+
+            const stationMap = new Map();
+
+            Object.entries(HARDCODED_STATIONS).forEach(([key, value]) => {
+
+                stationMap.set(key, {
+                    ...value,
+                    displayValue: "Active Feed"
+                });
+
             });
-          });
-      
-          // -------------------------
-          // Overview API
-          // -------------------------
-      
-          rawRecords.forEach(record => {
-      
-            switch (record.metric) {
-      
-              case "water_temperature_c":
-                stationMap.get("water").displayValue =
-                  `${record.value} °C`;
-                break;
-      
-              case "sound_level_db":
-                stationMap.get("sound").displayValue =
-                  `${Number(record.value).toFixed(1)} dB`;
-                break;
-      
-              case "pm25":
-                stationMap.get("air").displayValue =
-                  `${record.value} PM2.5`;
-                break;
-      
-            }
-      
-            // ABRI
-            const text = JSON.stringify(record).toLowerCase();
-      
-            if (text.includes("abri")) {
-              stationMap.get("abri").displayValue =
-                record.value != null
-                  ? `${record.value} ${record.unit || ""}`.trim()
-                  : "Active";
-            }
-      
-          });
-      
-          // -------------------------
-          // HuSense API
-          // -------------------------
-      
-          husenseData.forEach(sensor => {
-      
-            switch (sensor.name) {
-      
-              case "Marineterrein Hoofd Ingang":
-                stationMap.get("foot_main").displayValue =
-                  `${sensor.presenceCount} visitors`;
-                break;
-      
-              case "Marineterrein Commandantsbrug":
-                stationMap.get("foot_bridge").displayValue =
-                  `${sensor.presenceCount} visitors`;
-                break;
-      
-              case "Marineterrein Oude Poort":
-                stationMap.get("foot_oude").displayValue =
-                  `${sensor.presenceCount} visitors`;
-                break;
-      
-            }
-      
-          });
-      
-          // -------------------------
-          // Draw markers
-          // -------------------------
-      
-          stationMap.forEach(station => {
-      
-            const popupContent = `
-              <div style="font-family:system-ui,sans-serif;min-width:170px;">
-                <h4 style="margin:0 0 6px;font-size:14px;">
-                  ${station.label}
-                </h4>
-      
-                <div style="font-size:13px;font-weight:600;">
-                  Value:
-                  <span style="color:#0284c7;">
-                    ${station.displayValue}
-                  </span>
-                </div>
-      
-                <div style="font-size:11px;color:#666;margin-top:6px;">
-                  Status:
-                  <span style="color:${station.color};font-weight:600;">
-                    Active
-                  </span>
-                </div>
-              </div>
-            `;
-      
-            L.marker(station.coords, {
-              icon: createMarkerIcon(station.color)
-            })
-            .bindTooltip(station.label, {
-              direction: "top",
-              offset: [0, -6]
-            })
-            .bindPopup(popupContent)
-            .addTo(markerGroup);
-      
-          });
-      
-        } catch (err) {
-          console.error(err);
+
+            //----------------------------------------------------------
+            // OVERVIEW API
+            //----------------------------------------------------------
+
+            overview.records.forEach(record => {
+
+                switch (record.source) {
+
+                    case "water":
+
+                        if (record.metric === "water_temperature_c") {
+
+                            stationMap.get("water").displayValue =
+                                `${record.value} °C`;
+
+                        }
+
+                        break;
+
+                    case "sound":
+
+                        if (record.metric === "sound_level_db") {
+
+                            stationMap.get("sound").displayValue =
+                                `${Number(record.value).toFixed(1)} dB`;
+
+                        }
+
+                        if (record.metric === "sound_classification") {
+
+                            stationMap.get("sound").displayValue +=
+                                `<br>${record.value}`;
+
+                        }
+
+                        break;
+
+                    case "air":
+
+                        if (record.metric === "pm25") {
+
+                            stationMap.get("air").displayValue =
+                                `${record.value} μg/m³`;
+
+                        }
+
+                        break;
+
+                    case "telraam":
+
+                        if (record.metric === "vehicle_count") {
+
+                            stationMap.get("vehicle").displayValue =
+                                `${record.value} vehicles`;
+
+                        }
+
+                        break;
+
+                }
+
+                //--------------------------------------------------
+                // ABRI (if present)
+                //--------------------------------------------------
+
+                if (
+                    record.source &&
+                    record.source.toLowerCase().includes("abri")
+                ) {
+
+                    stationMap.get("abri").displayValue =
+                        record.value != null
+                            ? String(record.value)
+                            : "Active";
+
+                }
+
+            });
+
+            //----------------------------------------------------------
+            // HUSENSE PRESENCE
+            //----------------------------------------------------------
+
+            husense.forEach(space => {
+
+                switch (space.name) {
+
+                    case "Marineterrein Hoofd Ingang":
+
+                        stationMap.get("foot_main").displayValue =
+                            `${space.presenceCount} visitors`;
+
+                        break;
+
+                    case "Marineterrein Commandantsbrug":
+
+                        stationMap.get("foot_bridge").displayValue =
+                            `${space.presenceCount} visitors`;
+
+                        break;
+
+                    case "Marineterrein Oude Poort":
+
+                        stationMap.get("foot_oude").displayValue =
+                            `${space.presenceCount} visitors`;
+
+                        break;
+
+                }
+
+            });
+
+            //----------------------------------------------------------
+            // MQTT BUSYNESS
+            //----------------------------------------------------------
+
+            (mqtt.rows || []).forEach(camera => {
+
+                switch (camera.label) {
+
+                    case "Terrace":
+
+                        stationMap.get("terrace").displayValue =
+                            `${camera.count} people`;
+
+                        break;
+
+                    case "Boardwalk":
+
+                        stationMap.get("boardwalk").displayValue =
+                            `${camera.count} people`;
+
+                        break;
+
+                    case "Picnic":
+
+                        stationMap.get("picnic").displayValue =
+                            `${camera.count} people`;
+
+                        break;
+
+                    case "Shuttercam":
+
+                        stationMap.get("ams_inst").displayValue =
+                            `${camera.count} people`;
+
+                        break;
+
+                }
+
+            });
+
+            //----------------------------------------------------------
+            // SAVE FOR DRAWING
+            //----------------------------------------------------------
+
+            window.stationMap = stationMap;
+
         }
-      }
 
-      // Initial load + polling refresh every 60 seconds
-      renderLiveMapMarkers();
-      setInterval(renderLiveMapMarkers, 60000);
+        catch (err) {
 
-    });
-  </script>
+            console.error(err);
+
+        }
+
+    }
+
+                              //----------------------------------------------------------
+    // DRAW MARKERS
+    //----------------------------------------------------------
+
+    async function drawMap() {
+
+        await renderLiveMapMarkers();
+
+        markerGroup.clearLayers();
+
+        window.stationMap.forEach(station => {
+
+            const popup = `
+                <div style="
+                    min-width:190px;
+                    font-family:system-ui,sans-serif;
+                ">
+
+                    <h4 style="
+                        margin:0 0 8px;
+                        font-size:14px;
+                        font-weight:600;
+                    ">
+                        ${station.label}
+                    </h4>
+
+                    <div style="
+                        font-size:13px;
+                        margin-bottom:6px;
+                    ">
+                        <strong>Value:</strong><br>
+                        <span style="
+                            color:#0284c7;
+                            font-weight:600;
+                        ">
+                            ${station.displayValue}
+                        </span>
+                    </div>
+
+                    <div style="
+                        font-size:11px;
+                        color:#666;
+                    ">
+                        Status:
+                        <span style="
+                            color:${station.color};
+                            font-weight:600;
+                        ">
+                            Active
+                        </span>
+                    </div>
+
+                </div>
+            `;
+
+            L.marker(
+                station.coords,
+                {
+                    icon: createMarkerIcon(station.color)
+                }
+            )
+            .bindTooltip(
+                station.label,
+                {
+                    direction: "top",
+                    offset: [0,-6]
+                }
+            )
+            .bindPopup(
+                popup,
+                {
+                    maxWidth: 240
+                }
+            )
+            .addTo(markerGroup);
+
+        });
+
+    }
+
+    //----------------------------------------------------------
+    // INITIAL LOAD
+    //----------------------------------------------------------
+
+    drawMap();
+
+    //----------------------------------------------------------
+    // REFRESH EVERY MINUTE
+    //----------------------------------------------------------
+
+    setInterval(drawMap, 60000);
+
+});
+
+</script>
+
 </body>
 </html>
