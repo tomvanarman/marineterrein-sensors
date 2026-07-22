@@ -28,12 +28,76 @@
             height: 100vh;
             width: 100%;
         }
+
+        #legend {
+            position: absolute;
+            bottom: 24px;
+            left: 12px;
+            z-index: 1000;
+            background: rgba(255,255,255,0.92);
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,.25);
+            padding: 10px 14px;
+            font-size: 12px;
+            line-height: 1.6;
+            max-width: 210px;
+        }
+
+        #legend h4 {
+            margin: 0 0 6px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        #legend .legend-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 3px;
+        }
+
+        #legend .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 1px 3px rgba(0,0,0,.35);
+            flex-shrink: 0;
+        }
     </style>
 </head>
 
 <body>
 
 <div id="map"></div>
+
+<div id="legend">
+    <h4>Sensor / Camera Types</h4>
+    <div class="legend-row">
+        <span class="legend-dot" style="background:#ec4899;"></span>
+        <span>Visitor Dashboard (ABRI)</span>
+    </div>
+    <div class="legend-row">
+        <span class="legend-dot" style="background:#eab308;"></span>
+        <span>Sound Classification</span>
+    </div>
+    <div class="legend-row">
+        <span class="legend-dot" style="background:#0284c7;"></span>
+        <span>Foot Traffic / Vehicle Detection</span>
+    </div>
+    <div class="legend-row">
+        <span class="legend-dot" style="background:#f97316;"></span>
+        <span>Busyness Counter (Camera)</span>
+    </div>
+    <div class="legend-row">
+        <span class="legend-dot" style="background:#06b6d4;"></span>
+        <span>Water Temperature</span>
+    </div>
+    <div class="legend-row">
+        <span class="legend-dot" style="background:#8b5cf6;"></span>
+        <span>Air Quality</span>
+    </div>
+</div>
 
 <script>
 
