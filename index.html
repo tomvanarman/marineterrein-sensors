@@ -161,11 +161,13 @@ document.addEventListener("DOMContentLoaded", () => {
             const [
                 overviewResponse,
                 husenseResponse,
-                mqttResponse
+                mqttResponse,
+                gateResponse
             ] = await Promise.all([
                 fetch(`${PUBLIC_API}/api/ops/live/overview`),
                 fetch(`${PUBLIC_API}/api/husense/presence`),
-                fetch(`${PUBLIC_API}/api/busyness/mqtt`)
+                fetch(`${PUBLIC_API}/api/busyness/mqtt`),
+                fetch(`${PUBLIC_API}/api/husense/gate-counts`)
             ]);
 
             if (!overviewResponse.ok)
@@ -180,7 +182,8 @@ document.addEventListener("DOMContentLoaded", () => {
             const overview = await overviewResponse.json();
             const husense = await husenseResponse.json();
             const mqtt = await mqttResponse.json();
-
+            const gateCounts = await gateResponse.json();
+            
             markerGroup.clearLayers();
 
             const stationMap = new Map();
@@ -189,6 +192,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 stationMap.set(key, {
                     ...value,
+                    valueTitle: "Value",
                     displayValue: "Active Feed"
                 });
 
@@ -221,14 +225,7 @@ document.addEventListener("DOMContentLoaded", () => {
                                 `${Number(record.value).toFixed(1)} dB`;
 
                         }
-
-                        if (record.metric === "sound_classification") {
-
-                            stationMap.get("sound").displayValue +=
-                                `<br>${record.value}`;
-
-                        }
-
+                        
                         break;
 
                     case "air":
@@ -277,32 +274,37 @@ document.addEventListener("DOMContentLoaded", () => {
             // HUSENSE PRESENCE
             //----------------------------------------------------------
 
-            husense.forEach(space => {
+            gateCounts.forEach(gate => {
 
-                switch (space.name) {
-
+                switch (gate.spaceName) {
+            
                     case "Marineterrein Hoofd Ingang":
-
+            
+                        stationMap.get("foot_main").valueTitle = "Today's traffic";
                         stationMap.get("foot_main").displayValue =
-                            `${space.presenceCount} visitors`;
-
+                            `In: ${gate.arrivals}<br>Out: ${gate.departures}`;
+            
                         break;
-
+            
                     case "Marineterrein Commandantsbrug":
-
+            
+                        stationMap.get("foot_bridge").valueTitle = "Today's traffic";
                         stationMap.get("foot_bridge").displayValue =
-                            `${space.presenceCount} visitors`;
-
+                            `In: ${gate.arrivals}<br>Out: ${gate.departures}`;
+            
                         break;
-
+            
                     case "Marineterrein Oude Poort":
-
+            
+                        stationMap.get("foot_oude").valueTitle = "Today's traffic";
                         stationMap.get("foot_oude").displayValue =
-                            `${space.presenceCount} visitors`;
-
+                            `In: ${gate.arrivals}<br>Out: ${gate.departures}`;
+            
                         break;
-
+            
                 }
+            
+            });
 
             });
 
@@ -392,7 +394,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         font-size:13px;
                         margin-bottom:6px;
                     ">
-                        <strong>Value:</strong><br>
+                        <strong>${station.valueTitle}</strong><br>
                         <span style="
                             color:#0284c7;
                             font-weight:600;
