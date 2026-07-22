@@ -32,7 +32,7 @@
         #legend {
             position: absolute;
             bottom: 24px;
-            left: 12px;
+            right: 12px;
             z-index: 1000;
             background: rgba(255,255,255,0.92);
             border-radius: 8px;
@@ -261,7 +261,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 stationMap.set(key, {
                     ...value,
                     valueTitle: "Value",
-                    displayValue: "Active Feed"
+                    displayValue: "No data",
+                    isActive: false
                 });
 
             });
@@ -280,6 +281,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                             stationMap.get("water").displayValue =
                                 `${record.value} °C`;
+                            stationMap.get("water").isActive = true;
 
                         }
 
@@ -291,6 +293,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                             stationMap.get("sound").displayValue =
                                 `${Number(record.value).toFixed(1)} dB`;
+                            stationMap.get("sound").isActive = true;
 
                         }
                         
@@ -302,6 +305,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                             stationMap.get("air").displayValue =
                                 `${record.value} μg/m³`;
+                            stationMap.get("air").isActive = true;
 
                         }
 
@@ -313,6 +317,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                             stationMap.get("vehicle").displayValue =
                                 `${record.value} vehicles`;
+                            stationMap.get("vehicle").isActive = true;
 
                         }
 
@@ -332,7 +337,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     stationMap.get("abri").displayValue =
                         record.value != null
                             ? String(record.value)
-                            : "Active";
+                            : "Online";
+                    stationMap.get("abri").isActive = true;
 
                 }
 
@@ -351,6 +357,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         stationMap.get("foot_main").valueTitle = "Today's traffic";
                         stationMap.get("foot_main").displayValue =
                             `In: ${gate.arrivals}<br>Out: ${gate.departures}`;
+                        stationMap.get("foot_main").isActive = true;
             
                         break;
             
@@ -359,6 +366,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         stationMap.get("foot_bridge").valueTitle = "Today's traffic";
                         stationMap.get("foot_bridge").displayValue =
                             `In: ${gate.arrivals}<br>Out: ${gate.departures}`;
+                        stationMap.get("foot_bridge").isActive = true;
             
                         break;
             
@@ -367,6 +375,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         stationMap.get("foot_oude").valueTitle = "Today's traffic";
                         stationMap.get("foot_oude").displayValue =
                             `In: ${gate.arrivals}<br>Out: ${gate.departures}`;
+                        stationMap.get("foot_oude").isActive = true;
             
                         break;
             
@@ -386,6 +395,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                         stationMap.get("terrace").displayValue =
                             `${camera.count} people`;
+                        stationMap.get("terrace").isActive = true;
 
                         break;
 
@@ -393,6 +403,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                         stationMap.get("boardwalk").displayValue =
                             `${camera.count} people`;
+                        stationMap.get("boardwalk").isActive = true;
 
                         break;
 
@@ -400,6 +411,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                         stationMap.get("picnic").displayValue =
                             `${camera.count} people`;
+                        stationMap.get("picnic").isActive = true;
 
                         break;
 
@@ -407,6 +419,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                         stationMap.get("ams_inst").displayValue =
                             `${camera.count} people`;
+                        stationMap.get("ams_inst").isActive = true;
 
                         break;
 
@@ -475,10 +488,10 @@ document.addEventListener("DOMContentLoaded", () => {
                     ">
                         Status:
                         <span style="
-                            color:#00ba12;
+                            color:${station.isActive ? '#00ba12' : '#dc2626'};
                             font-weight:600;
                         ">
-                            Active
+                            ${station.isActive ? 'Active' : 'No data'}
                         </span>
                     </div>
 
