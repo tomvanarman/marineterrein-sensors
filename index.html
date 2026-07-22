@@ -75,19 +75,19 @@
     <h4>Sensor / Camera Types</h4>
     <div class="legend-row">
         <span class="legend-dot" style="background:#ec4899;"></span>
-        <span>Visitor Dashboard (ABRI)</span>
+        <span>Visitor Dashboard</span>
     </div>
     <div class="legend-row">
         <span class="legend-dot" style="background:#eab308;"></span>
         <span>Sound Classification</span>
     </div>
     <div class="legend-row">
-        <span class="legend-dot" style="background:#0284c7;"></span>
-        <span>Foot Traffic / Vehicle Detection</span>
+        <span class="legend-dot" style="background:#ff0000;"></span>
+        <span>Teleram Vehicle Detection</span>
     </div>
     <div class="legend-row">
         <span class="legend-dot" style="background:#f97316;"></span>
-        <span>Busyness Counter (Camera)</span>
+        <span>MQTT Busyness Counter</span>
     </div>
     <div class="legend-row">
         <span class="legend-dot" style="background:#06b6d4;"></span>
@@ -96,6 +96,10 @@
     <div class="legend-row">
         <span class="legend-dot" style="background:#8b5cf6;"></span>
         <span>Air Quality</span>
+    </div>
+    <div class="legend-row">
+        <span class="legend-dot" style="background:#0284c7;"></span>
+        <span>MM Gate Traffic</span>
     </div>
 </div>
 
@@ -157,7 +161,7 @@ document.addEventListener("DOMContentLoaded", () => {
         },
 
         foot_main: {
-            label: "Foot Traffic Flow - Main Entrance",
+            label: "Gate Traffic - Main Entrance",
             coords: [52.3725506,4.9178169],
             color: "#0284c7"
         },
@@ -165,7 +169,7 @@ document.addEventListener("DOMContentLoaded", () => {
         vehicle: {
             label: "Vehicle Type Detection (Telraam)",
             coords: [52.3731205,4.9167735],
-            color: "#0284c7"
+            color: "#ff0000"
         },
 
         terrace: {
@@ -199,13 +203,13 @@ document.addEventListener("DOMContentLoaded", () => {
         },
 
         foot_bridge: {
-            label: "Foot Traffic Flow - Bridge Entrance",
+            label: "Gate Traffic - Bridge Entrance",
             coords: [52.3756498,4.9143518],
             color: "#0284c7"
         },
 
         foot_oude: {
-            label: "Foot Traffic Flow - Oude Poort",
+            label: "Gate Traffic - Oude Poort",
             coords: [52.3718495,4.9163502],
             color: "#0284c7"
         },
