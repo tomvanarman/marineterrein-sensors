@@ -47,6 +47,19 @@
             margin: 0 0 6px;
             font-size: 13px;
             font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        #legend .legend-row span:last-child {
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+            font-size: 11px;
+        }
+
+        .leaflet-popup-content h4 {
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
         }
 
         #legend .legend-row {
@@ -155,13 +168,13 @@ document.addEventListener("DOMContentLoaded", () => {
         },
 
         sound: {
-            label: "Urban Sound Classification",
+            label: "Sound Level Sensor",
             coords: [52.3728175,4.9166609],
             color: "#eab308"
         },
 
         foot_main: {
-            label: "Gate Traffic - Main Entrance",
+            label: "MMwave - Commandantsbrug",
             coords: [52.3725506,4.9178169],
             color: "#0284c7"
         },
@@ -173,49 +186,49 @@ document.addEventListener("DOMContentLoaded", () => {
         },
 
         terrace: {
-            label: "Busyness Counter - Terrace Homeland",
+            label: "Busyness Monitor - Terrace Homeland",
             coords: [52.3731254,4.9166904],
             color: "#f97316"
         },
 
         water: {
-            label: "Water Temperature",
+            label: "Water Temperature Sensor",
             coords: [52.3732122,4.9144507],
             color: "#06b6d4"
         },
 
         ams_inst: {
-            label: "Busyness Counter - Kadewest",
+            label: "Busyness Monitor - Kadewest",
             coords: [52.3737029,4.9150122],
             color: "#f97316"
         },
 
         boardwalk: {
-            label: "Busyness Counter - Boardwalk",
+            label: "Busyness Monitor - Boardwalk",
             coords: [52.3725291,4.9153350],
             color: "#f97316"
         },
 
         picnic: {
-            label: "Busyness Counter - Voorwerf",
+            label: "Busyness Monitor - Voorwerf",
             coords: [52.3728910,4.9166064],
             color: "#f97316"
         },
 
         foot_bridge: {
-            label: "Gate Traffic - Bridge Entrance",
+            label: "MMwave - Hoofdingang",
             coords: [52.3756498,4.9143518],
             color: "#0284c7"
         },
 
         foot_oude: {
-            label: "Gate Traffic - Oude Poort",
+            label: "MMwave - Oude poort",
             coords: [52.3718495,4.9163502],
             color: "#0284c7"
         },
 
         air: {
-            label: "Air Quality Monitor",
+            label: "Air Quality Sensor",
             coords: [52.3724122,4.9174840],
             color: "#8b5cf6"
         }
@@ -251,7 +264,20 @@ document.addEventListener("DOMContentLoaded", () => {
             const husense = await husenseResponse.json();
             const mqtt = await mqttResponse.json();
             const gateCounts = await gateResponse.json();
-            
+
+            // Real backend health status per source (ok/warning/critical/unknown),
+            // now staleness-aware server-side -- only covers sources exposed via
+            // /api/ops/live/overview's `sources` object (water, sound, air,
+            // telraam). HuSense gate traffic and MQTT busyness cameras don't have
+            // an equivalent status field from their endpoints, so those markers
+            // still fall back to "did a value show up" below.
+            const sourceStatus = {
+                water: overview.sources?.water?.status,
+                sound: overview.sources?.sound?.status,
+                air: overview.sources?.air?.status,
+                telraam: overview.sources?.telraam?.status,
+            };
+
             markerGroup.clearLayers();
 
             const stationMap = new Map();
@@ -281,7 +307,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
                             stationMap.get("water").displayValue =
                                 `${record.value} °C`;
-                            stationMap.get("water").isActive = true;
+                            stationMap.get("water").isActive =
+                                sourceStatus.water === "ok";
 
                         }
 
@@ -293,7 +320,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
                             stationMap.get("sound").displayValue =
                                 `${Number(record.value).toFixed(1)} dB`;
-                            stationMap.get("sound").isActive = true;
+                            stationMap.get("sound").isActive =
+                                sourceStatus.sound === "ok";
 
                         }
                         
@@ -305,7 +333,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
                             stationMap.get("air").displayValue =
                                 `${record.value} μg/m³`;
-                            stationMap.get("air").isActive = true;
+                            stationMap.get("air").isActive =
+                                sourceStatus.air === "ok";
 
                         }
 
@@ -317,7 +346,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
                             stationMap.get("vehicle").displayValue =
                                 `${record.value} vehicles`;
-                            stationMap.get("vehicle").isActive = true;
+                            stationMap.get("vehicle").isActive =
+                                sourceStatus.telraam === "ok";
 
                         }
 
