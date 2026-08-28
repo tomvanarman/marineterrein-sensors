@@ -124,13 +124,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }).setView([52.3730, 4.9158], 17);
 
     L.tileLayer(
-        "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?api_key=cb1_2ajx_1_ffa26773f61de818a407c46e",
-        {
-            subdomains: "abcd",
-            maxZoom: 19,
-            attribution:
-                '&copy; OpenStreetMap contributors &copy; CARTO'
-        }
+    "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=cb1_2ajx_1_ffa26773f61de818a407c46e",
+    {
+        subdomains: "abcd",
+        maxZoom: 19,
+        attribution:
+            '&copy; OpenStreetMap contributors &copy; CARTO'
+    }
     ).addTo(map);
 
     const markerGroup = L.layerGroup().addTo(map);
